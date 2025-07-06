@@ -93,5 +93,26 @@ class CloudLogger(Logger):
     # requests.post(self.api_url, headers={"Authorization": f"Bearer {self.api_key}"}, json=data)
     pass
 
-# Экземпляр по умолчанию (лог в файл)
-logger = FileLogger() 
+class ConsoleLogger(Logger):
+  """Логирование в консоль (stdout)."""
+  def log(self, level: str, message: str, user_id: Optional[int] = None, event_type: str = "event") -> None:
+    if LOG_LEVELS.get(level, 20) >= LOG_LEVELS["INFO"]:
+      record = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "level": level,
+        "user_id": user_id,
+        "event_type": event_type,
+        "message": message
+      }
+      print(json.dumps(record, ensure_ascii=False))
+
+class MultiLogger(Logger):
+  """Логгер, делегирующий запись в несколько источников."""
+  def __init__(self, *loggers):
+    self.loggers = loggers
+  def log(self, level: str, message: str, user_id: Optional[int] = None, event_type: str = "event") -> None:
+    for logger in self.loggers:
+      logger.log(level, message, user_id, event_type)
+
+# Экземпляр по умолчанию: MultiLogger (файл + консоль)
+logger = MultiLogger(FileLogger(), ConsoleLogger()) 
