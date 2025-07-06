@@ -13,11 +13,11 @@ from typing import Optional
 from src.storage import storage
 
 LOG_LEVELS = {"DEBUG": 10, "INFO": 20, "WARNING": 30, "ERROR": 40}
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+LOG_LEVEL_NUM = LOG_LEVELS.get(LOG_LEVEL, 20)
 
 def should_log(level: str) -> bool:
-  log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-  log_level_num = LOG_LEVELS.get(log_level, 20)
-  return LOG_LEVELS.get(level, 20) >= log_level_num
+  return LOG_LEVELS.get(level, 20) >= LOG_LEVEL_NUM
 
 class Logger:
   """Базовый интерфейс логирования."""

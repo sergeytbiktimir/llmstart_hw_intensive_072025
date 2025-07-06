@@ -127,14 +127,6 @@ async def services(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
   await save_and_reply(update, context, text)
   logger.log('INFO', text, user_id, event_type='assistant_reply')
 
-def handle_unknown(update, context):
-    """Обработка неизвестной команды (для тестов и fallback)."""
-    user_id = getattr(getattr(update, 'effective_user', None), 'id', None)
-    text = getattr(getattr(update, 'message', None), 'text', '')
-    logger.log('WARNING', f'Неизвестная команда: {text}', user_id, event_type='unknown_command')
-    if hasattr(update, 'message') and hasattr(update.message, 'reply_text'):
-        update.message.reply_text('Извините, команда не распознана. Пожалуйста, используйте /start, /faq или /services.')
-
 def main() -> None:
   """Запуск Telegram-бота."""
   logger.log('INFO', 'Bot started')

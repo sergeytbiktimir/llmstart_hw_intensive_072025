@@ -132,8 +132,7 @@ def handle_unknown(update, context):
     user_id = getattr(getattr(update, 'effective_user', None), 'id', None)
     text = getattr(getattr(update, 'message', None), 'text', '')
     logger.log('WARNING', f'Неизвестная команда: {text}', user_id, event_type='unknown_command')
-    if hasattr(update, 'message') and hasattr(update.message, 'reply_text'):
-        update.message.reply_text('Извините, команда не распознана. Пожалуйста, используйте /start, /faq или /services.')
+    update.message.reply_text('Извините, команда не распознана. Пожалуйста, используйте /start, /faq или /services.')
 
 def main() -> None:
   """Запуск Telegram-бота."""
@@ -154,6 +153,7 @@ def main() -> None:
   application.add_handler(CommandHandler('services', services))
   # Универсальный handler для всех пользовательских сообщений (user_message)
   application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, user_message_handler))
+  application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unknown))
   application.run_polling()
 
 if __name__ == '__main__':
