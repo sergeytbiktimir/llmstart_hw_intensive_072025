@@ -1,0 +1,8 @@
+name: llm-tg-bot
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - python-telegram-bot
+      - python-dotenv
+      - pytest 
