@@ -2,6 +2,7 @@ import os
 import aiohttp
 from typing import List, Dict, Optional
 from src.llm_models import llm_models
+from aiohttp import ClientTimeout
 
 class LLMClient:
     def __init__(self):
@@ -25,7 +26,7 @@ class LLMClient:
         if service == "anthropic":
             # Anthropic Claude (messages endpoint)
             payload = {
-                "model": model["name"],
+                "model": model["provider_model_name"],
                 "messages": messages,
                 "max_tokens": params.get("max_tokens", 1024),
                 "stream": False
@@ -33,13 +34,13 @@ class LLMClient:
         else:
             # OpenAI, LM Studio, Ollama, Fireworks, Together, etc.
             payload = {
-                "model": model["name"],
+                "model": model["provider_model_name"],
                 "messages": messages,
                 "max_tokens": params.get("max_tokens", 1024),
                 "stream": False
             }
         async with aiohttp.ClientSession() as session:
-            async with session.post(endpoint, json=payload, headers=headers, timeout=60) as resp:
+            async with session.post(endpoint, json=payload, headers=headers, timeout=ClientTimeout(total=60)) as resp:
                 resp.raise_for_status()
                 data = await resp.json()
                 # Anthropic: content in data["content"] or data["choices"][0]["message"]["content"]

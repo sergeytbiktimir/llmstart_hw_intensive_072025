@@ -355,7 +355,38 @@ python encrypt_llm_key.py sk-...your_openai_key... <ваш_мастер_ключ
 {
   "name": "gpt-3.5-turbo",
   "service": "openai",
+  "provider_model_name": "gpt-3.5-turbo",
   "endpoint": "https://api.openai.com/v1/chat/completions",
   "encrypted_api_key": "<сюда вставьте результат>"
 }
 ``` 
+
+## Структура llm_models.json
+Каждая модель описывается следующими полями:
+- `name` — уникальное имя модели внутри системы (для пользователя/чата)
+- `service` — провайдер (например, openai, anthropic, lmstudio, fireworks)
+- `provider_model_name` — имя/ID модели у провайдера (используется в параметре model при запросе к API)
+- `endpoint` — URL для обращения к API
+- `encrypted_api_key` — зашифрованный ключ (если требуется)
+
+**Пример:**
+```json
+{
+  "name": "gpt-3.5-turbo-openai",
+  "service": "openai",
+  "provider_model_name": "gpt-3.5-turbo",
+  "endpoint": "https://api.openai.com/v1/chat/completions",
+  "encrypted_api_key": "..."
+}
+```
+
+### Как используется provider_model_name
+
+При обращении к API провайдера всегда указывается именно это поле:
+```python
+client.chat.completions.create(
+    model=model_cfg["provider_model_name"],
+    messages=[...]
+)
+```
+Это позволяет использовать одинаковые имена моделей у разных провайдеров без конфликтов и гарантирует корректную маршрутизацию запросов. 
