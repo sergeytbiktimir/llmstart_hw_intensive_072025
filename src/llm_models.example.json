@@ -1,0 +1,35 @@
+[
+  {
+    "name": "gpt-3.5-turbo-openai",
+    "service": "openai",
+    "provider_model_name": "gpt-3.5-turbo",
+    "endpoint": "https://api.openai.com/v1/chat/completions",
+    "encrypted_api_key": ""
+  },
+  {
+    "name": "llama-2-70b-ollama",
+    "service": "ollama",
+    "provider_model_name": "llama2:70b",
+    "endpoint": "http://localhost:11434/v1/chat/completions"
+  },
+  {
+    "name": "mistral-7b-fireworks",
+    "service": "fireworks",
+    "provider_model_name": "accounts/fireworks/models/mistral-7b",
+    "endpoint": "https://api.fireworks.ai/v1/chat/completions",
+    "encrypted_api_key": ""
+  },
+  {
+    "name": "claude-3-opus-anthropic",
+    "service": "anthropic",
+    "provider_model_name": "claude-3-opus-20240229",
+    "endpoint": "https://api.anthropic.com/v1/messages",
+    "encrypted_api_key": ""
+  },
+  {
+    "name": "lmstudio-llama3",
+    "service": "lmstudio",
+    "provider_model_name": "llama3",
+    "endpoint": "http://localhost:1234/v1/chat/completions"
+  }
+] 
