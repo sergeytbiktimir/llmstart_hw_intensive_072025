@@ -50,8 +50,9 @@ def load_llm_models(path: str) -> List[Dict]:
     with open(path, "r", encoding="utf-8") as f:
         models = json.load(f)
     for m in models:
-        if "encrypted_api_key" in m:
-            m["api_key"] = decrypt_key(m["encrypted_api_key"])
+        encrypted = m.get("encrypted_api_key")
+        if encrypted:
+            m["api_key"] = decrypt_key(encrypted)
     return models
 
 
@@ -66,8 +67,9 @@ class LLMModels:
         with open(self.source, encoding="utf-8") as f:
             models = json.load(f)
         for m in models:
-            if "encrypted_api_key" in m:
-                m["api_key"] = decrypt_key(m["encrypted_api_key"])
+            encrypted = m.get("encrypted_api_key")
+            if encrypted:
+                m["api_key"] = decrypt_key(encrypted)
         return models
 
     def get_models(self) -> List[Dict]:

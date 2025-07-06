@@ -6,7 +6,7 @@
 import os
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes, CallbackContext
 import json
 from src.storage import storage
 from src.service_catalog import service_catalog
@@ -24,21 +24,43 @@ async def save_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
   """Отправляет сообщение пользователю и сохраняет его в истории как assistant_reply."""
   user = getattr(update, 'effective_user', None)
   user_id = getattr(user, 'id', None)
-  if getattr(update, 'message', None) and hasattr(update.message, 'reply_text'):
-    await update.message.reply_text(text)
+  msg = getattr(update, 'message', None)
+  if msg and hasattr(msg, 'reply_text'):
+    await msg.reply_text(text)
   if user_id is not None:
     storage.save_history(user_id, 'assistant_reply', text)
   logger.log('DEBUG', text, user_id, event_type='assistant_reply')
 
+def is_faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    user_data = getattr(context, 'user_data', None)
+    return isinstance(user_data, dict) and 'faqs' in user_data
+
 async def user_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-  """Сохраняет любое пользовательское сообщение в истории как user_message."""
+  print("user_message_handler called")
   user = getattr(update, 'effective_user', None)
   user_id = getattr(user, 'id', None)
-  text = (getattr(getattr(update, 'message', None), 'text', '') or '').strip()
+  msg = getattr(update, 'message', None)
+  text = (getattr(msg, 'text', '') or '').strip()
   if user_id is not None:
     storage.save_history(user_id, 'user_message', text)
-  logger.log('DEBUG', text, user_id, event_type='user_message')
-  # Не отвечаем, если это не команда/FAQ (чтобы не было эха)
+  logger.log('INFO', text, user_id, event_type='user_message')
+  user_data = getattr(context, 'user_data', None)
+  if user_data is not None and isinstance(user_data, dict) and 'faqs' in user_data:
+    await answer_faq(update, context)
+    return
+  if text.startswith('/'):
+    return
+  try:
+    from src.llm_client import llm_client
+    response = await llm_client.generate([{"role": "user", "content": text}], user_id=user_id)
+  except Exception as e:
+    logger.log('ERROR', f'LLM error: {e}', user_id, event_type='llm_error')
+    response = 'Извините, произошла ошибка при обращении к ИИ.'
+  if msg and hasattr(msg, 'reply_text'):
+    await msg.reply_text(response)
+  if user_id is not None:
+    storage.save_history(user_id, 'assistant_reply', response)
+  logger.log('DEBUG', response, user_id, event_type='assistant_reply')
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
   user = getattr(update, 'effective_user', None)
@@ -64,7 +86,10 @@ async def ask_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 async def save_contact_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
   contact = (getattr(getattr(update, 'message', None), 'text', '') or '').strip()
-  name = context.user_data.get('name', 'Неизвестно') if hasattr(context, 'user_data') and context.user_data else 'Неизвестно'
+  name = 'Неизвестно'
+  user_data = getattr(context, 'user_data', None)
+  if user_data is not None and isinstance(user_data, dict):
+    name = user_data.get('name', 'Неизвестно')
   user = getattr(update, 'effective_user', None)
   user_id = getattr(user, 'id', None)
   if user_id is not None:
@@ -95,7 +120,10 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
   await save_and_reply(update, context, text)
 
 async def answer_faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-  faqs = context.user_data.get('faqs') if hasattr(context, 'user_data') and context.user_data else None
+  faqs = None
+  user_data = getattr(context, 'user_data', None)
+  if user_data is not None and isinstance(user_data, dict):
+    faqs = user_data.get('faqs')
   if not faqs:
     return
   user = getattr(update, 'effective_user', None)
@@ -107,8 +135,10 @@ async def answer_faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
   answer = None
   if text.isdigit():
     idx = int(text) - 1
-    if 0 <= idx < len(faqs):
-      answer = faqs[idx]['answer']
+    if isinstance(faqs, list) and 0 <= idx < len(faqs):
+      item = faqs[idx]
+      if isinstance(item, dict):
+        answer = item.get('answer')
   else:
     for item in faqs:
       if text.lower() in item['question'].lower():
@@ -143,14 +173,17 @@ async def services(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 def handle_unknown(update, context):
     """Обработка неизвестной команды (для тестов и fallback)."""
     user_id = getattr(getattr(update, 'effective_user', None), 'id', None)
-    text = getattr(getattr(update, 'message', None), 'text', '')
+    msg = getattr(update, 'message', None)
+    text = getattr(msg, 'text', '')
     logger.log('WARNING', f'Неизвестная команда: {text}', user_id, event_type='unknown_command')
-    if hasattr(update, 'message') and hasattr(update.message, 'reply_text'):
-        update.message.reply_text('Извините, команда не распознана. Пожалуйста, используйте /start, /faq или /services.')
+    if msg and hasattr(msg, 'reply_text'):
+        msg.reply_text('Извините, команда не распознана. Пожалуйста, используйте /start, /faq или /services.')
 
 def main() -> None:
   """Запуск Telegram-бота."""
   logger.log('INFO', 'Bot started')
+  if not TELEGRAM_BOT_TOKEN:
+    raise RuntimeError('TELEGRAM_BOT_TOKEN is not set in the environment. Please set it in your .env file.')
   application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
   conv_handler = ConversationHandler(
@@ -163,7 +196,6 @@ def main() -> None:
   )
   application.add_handler(conv_handler)
   application.add_handler(CommandHandler('faq', faq))
-  application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, answer_faq))
   application.add_handler(CommandHandler('services', services))
   # Универсальный handler для всех пользовательских сообщений (user_message)
   application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, user_message_handler))
