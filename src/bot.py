@@ -13,6 +13,7 @@ from src.service_catalog import service_catalog
 from src.logger import logger
 from telegram.constants import ChatAction
 import asyncio
+import re
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -21,6 +22,16 @@ if not TELEGRAM_BOT_TOKEN:
 
 ASK_NAME, ASK_CONTACT = range(2)
 FAQ_FILE = os.path.join(os.path.dirname(__file__), 'faq_prompts.json')
+
+# Регекс для удаления внутренних размышлений модели вида <think> ... </think>
+THINK_RE = re.compile(r"<think>[\s\S]*?</think>", flags=re.IGNORECASE)
+
+def format_response_for_user(raw: str) -> str:
+  """Удаляет блоки <think>…</think> и лишние пробелы."""
+  if not isinstance(raw, str):
+    return str(raw)
+  cleaned = THINK_RE.sub("", raw).strip()
+  return cleaned
 
 async def save_and_reply(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str) -> None:
   """Отправляет сообщение пользователю и сохраняет его в истории как assistant_reply."""
@@ -77,9 +88,13 @@ async def user_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
       response = 'Извините, сервис ИИ не ответил вовремя. Попробуйте позже.'
     logger.log('INFO', f'LLM response: {response}', user_id, event_type='assistant_reply')
     logger.log('DEBUG', f'LLM response: {response}', user_id, event_type='assistant_reply')
+    # Форматируем ответ для пользователя
+    formatted_response = format_response_for_user(response)
+    logger.log('DEBUG', f'Formatted response: {formatted_response}', user_id, event_type='assistant_reply')
   except Exception as e:
     logger.log('ERROR', f'LLM error: {e}', user_id, event_type='llm_error')
     response = 'Извините, произошла ошибка при обращении к ИИ.'
+    formatted_response = response
   if typing_task:
     typing_task.cancel()
     try:
@@ -91,22 +106,22 @@ async def user_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
   if msg and hasattr(msg, 'chat'):
     try:
       logger.log('DEBUG', f'Sending to Telegram chat {msg.chat.id}: {response}', user_id, event_type='telegram_debug')
-      if isinstance(response, str) and response.startswith('Ошибка соединения с LLM API'):
+      if isinstance(formatted_response, str) and formatted_response.startswith('Ошибка соединения с LLM API'):
         await context.bot.send_message(chat_id=msg.chat.id, text='Извините, сервис ИИ временно недоступен. Попробуйте позже.')
       else:
         # Пытаемся сначала через Bot API send_message
-        await context.bot.send_message(chat_id=msg.chat.id, text=response)
+        await context.bot.send_message(chat_id=msg.chat.id, text=formatted_response)
       logger.log('INFO', 'Message sent to Telegram', user_id, event_type='telegram_send')
     except Exception as e:
       # fallback через reply_text
       try:
-        await msg.reply_text(response)
+        await msg.reply_text(formatted_response)
         logger.log('INFO', 'Message sent via reply_text fallback', user_id, event_type='telegram_send')
       except Exception as ex:
         logger.log('ERROR', f'Telegram send error: {e}; fallback error: {ex}', user_id, event_type='telegram_error')
   if user_id is not None:
-    storage.save_history(user_id, 'assistant_reply', response)
-  logger.log('DEBUG', response, user_id, event_type='assistant_reply')
+    storage.save_history(user_id, 'assistant_reply', formatted_response)
+  logger.log('DEBUG', formatted_response, user_id, event_type='assistant_reply')
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
   user = getattr(update, 'effective_user', None)
