@@ -28,7 +28,8 @@ class FileLogger(Logger):
   """Логирование в файл (по умолчанию logs/bot.log) с ротацией по размеру (5 МБ)."""
   MAX_SIZE = 5 * 1024 * 1024  # 5 МБ
   def __init__(self, file_path: Optional[str] = None):
-    self.file_path = file_path or os.path.join(os.path.dirname(__file__), '..', 'logs', 'bot.log')
+    env_path = os.environ.get("LOG_FILE_PATH")
+    self.file_path = file_path or env_path or os.path.join(os.path.dirname(__file__), '..', 'logs', 'bot.log')
     os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
   def _rotate(self):
     if os.path.exists(self.file_path) and os.path.getsize(self.file_path) > self.MAX_SIZE:

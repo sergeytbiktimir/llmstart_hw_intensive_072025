@@ -31,7 +31,7 @@
 1. Скопируйте `.env.example` в `.env` и укажите свой токен Telegram-бота.
 2. Установите зависимости: `conda env create -f environment.yml`
 3. Активируйте окружение: `conda activate llm-tg-bot`
-4. Запустите бота: `python src/bot.py`
+4. Запустите бота: `python -m src`
 
 ## Пример .env
 ```
