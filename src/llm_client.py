@@ -13,8 +13,7 @@ class LLMClient:
         if not model:
             raise ValueError("LLM model not found")
         endpoint = model["endpoint"]
-        api_key_env = model.get("api_key_env")
-        api_key = os.environ.get(api_key_env) if api_key_env else None
+        api_key = model.get("api_key")
         service = model.get("service", "openai")
         headers = {"Content-Type": "application/json"}
         if api_key:
@@ -22,6 +21,12 @@ class LLMClient:
                 headers["x-api-key"] = api_key
             else:
                 headers["Authorization"] = f"Bearer {api_key}"
+        elif service in ("openai", "fireworks", "anthropic"):
+            # Для облачных сервисов ключ обязателен
+            error_msg = f"Для модели '{model.get('name')}' требуется API-ключ. Проверьте настройки."
+            from src.logger import logger
+            logger.log('ERROR', error_msg, user_id, event_type='llm_error')
+            return error_msg
         payload = {}
         if service == "anthropic":
             # Anthropic Claude (messages endpoint)
@@ -40,20 +45,35 @@ class LLMClient:
                 "stream": False
             }
         async with aiohttp.ClientSession() as session:
-            async with session.post(endpoint, json=payload, headers=headers, timeout=ClientTimeout(total=60)) as resp:
-                resp.raise_for_status()
-                data = await resp.json()
-                # Anthropic: content in data["content"] or data["choices"][0]["message"]["content"]
-                if service == "anthropic":
-                    # Claude 3 returns content in data["content"] (list of dicts with type/text)
-                    if "content" in data and isinstance(data["content"], list):
-                        return "".join([c.get("text", "") for c in data["content"] if c.get("type") == "text"])
-                    # Claude 2/old: data["completion"]
-                    if "completion" in data:
-                        return data["completion"]
-                # OpenAI/compatible: data["choices"][0]["message"]["content"]
-                if "choices" in data and data["choices"]:
-                    return data["choices"][0]["message"]["content"]
-                raise RuntimeError(f"Unexpected LLM response: {data}")
+            try:
+                async with session.post(endpoint, json=payload, headers=headers, timeout=ClientTimeout(total=60)) as resp:
+                    if resp.status >= 400:
+                        err_text = await resp.text()
+                        from src.logger import logger
+                        logger.log('ERROR', f'LLM API error {resp.status}: {err_text}', user_id, event_type='llm_error')
+                        if resp.status == 401:
+                            return 'Ошибка авторизации LLM API: проверьте ключ.'
+                        elif resp.status == 403:
+                            return 'Доступ к LLM API запрещён. Проверьте права доступа.'
+                        elif resp.status == 404:
+                            return 'LLM API не найден. Проверьте endpoint и имя модели.'
+                        elif resp.status >= 500:
+                            return 'Внутренняя ошибка LLM API. Попробуйте позже.'
+                        else:
+                            return f'Ошибка LLM API ({resp.status}): {err_text}'
+                    data = await resp.json()
+            except Exception as e:
+                from src.logger import logger
+                logger.log('ERROR', f'LLM API connection error: {e}', user_id, event_type='llm_error')
+                return f'Ошибка соединения с LLM API: {e}'
+            # Anthropic: content in data["content"] or data["choices"][0]["message"]["content"]
+            if service == "anthropic":
+                if "content" in data and isinstance(data["content"], list):
+                    return "".join([c.get("text", "") for c in data["content"] if c.get("type") == "text"])
+                if "completion" in data:
+                    return data["completion"]
+            if "choices" in data and data["choices"]:
+                return data["choices"][0]["message"]["content"]
+            return f"Unexpected LLM response: {data}"
 
 llm_client = LLMClient() 

@@ -367,9 +367,9 @@ python encrypt_llm_key.py sk-...your_openai_key... <ваш_мастер_ключ
 - `service` — провайдер (например, openai, anthropic, lmstudio, fireworks)
 - `provider_model_name` — имя/ID модели у провайдера (используется в параметре model при запросе к API)
 - `endpoint` — URL для обращения к API
-- `encrypted_api_key` — зашифрованный ключ (если требуется)
+- `encrypted_api_key` — зашифрованный ключ (если требуется; для локальных open-weights моделей может быть пустым)
 
-**Пример:**
+**Пример для облачного провайдера (ключ обязателен):**
 ```json
 {
   "name": "gpt-3.5-turbo-openai",
@@ -380,13 +380,15 @@ python encrypt_llm_key.py sk-...your_openai_key... <ваш_мастер_ключ
 }
 ```
 
-### Как используется provider_model_name
-
-При обращении к API провайдера всегда указывается именно это поле:
-```python
-client.chat.completions.create(
-    model=model_cfg["provider_model_name"],
-    messages=[...]
-)
+**Пример для локального LMStudio (ключ не требуется):**
+```json
+{
+  "name": "qwen3-8b-lmstudio",
+  "service": "lmstudio",
+  "provider_model_name": "qwen/qwen3-8b",
+  "endpoint": "http://localhost:1234/v1/chat/completions"
+  // encrypted_api_key отсутствует или пустой
+}
 ```
-Это позволяет использовать одинаковые имена моделей у разных провайдеров без конфликтов и гарантирует корректную маршрутизацию запросов. 
+
+> Для OpenAI, Fireworks, Anthropic и других облачных сервисов encrypted_api_key обязателен. Для LMStudio с open-weights и других локальных сервисов поле может быть пустым или отсутствовать. 
