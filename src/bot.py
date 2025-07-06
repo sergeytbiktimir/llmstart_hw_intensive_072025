@@ -5,13 +5,12 @@
 """
 import os
 from dotenv import load_dotenv
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 import json
 from src.storage import storage
 from src.service_catalog import service_catalog
 from src.logger import logger
-import logging
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
