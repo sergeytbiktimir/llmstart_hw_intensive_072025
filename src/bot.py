@@ -11,6 +11,7 @@ import json
 from src.storage import storage
 from src.service_catalog import service_catalog
 from src.logger import logger
+from telegram.constants import ChatAction
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -50,9 +51,17 @@ async def user_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     return
   if text.startswith('/'):
     return
+  # Индикация "бот печатает"
+  if msg and hasattr(msg, 'chat'):
+    try:
+      await context.bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.TYPING)
+    except Exception as e:
+      logger.log('DEBUG', f'Chat action error: {e}', user_id, event_type='chat_action')
   try:
     from src.llm_client import llm_client
     response = await llm_client.generate([{"role": "user", "content": text}], user_id=user_id)
+    logger.log('INFO', f'LLM response: {response}', user_id, event_type='assistant_reply')
+    logger.log('DEBUG', f'LLM response: {response}', user_id, event_type='assistant_reply')
   except Exception as e:
     logger.log('ERROR', f'LLM error: {e}', user_id, event_type='llm_error')
     response = 'Извините, произошла ошибка при обращении к ИИ.'
