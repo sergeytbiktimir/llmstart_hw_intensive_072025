@@ -12,6 +12,7 @@ from src.storage import storage
 from src.service_catalog import service_catalog
 from src.logger import logger
 from telegram.constants import ChatAction
+import asyncio
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
@@ -46,27 +47,63 @@ async def user_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     storage.save_history(user_id, 'user_message', text)
   logger.log('INFO', text, user_id, event_type='user_message')
   user_data = getattr(context, 'user_data', None)
-  if user_data is not None and isinstance(user_data, dict) and 'faqs' in user_data:
+  if isinstance(user_data, dict) and 'faqs' in user_data:
     await answer_faq(update, context)
     return
   if text.startswith('/'):
     return
-  # Индикация "бот печатает"
+  # Индикация "бот печатает" — только после логирования и сохранения
+  typing_task = None
   if msg and hasattr(msg, 'chat'):
-    try:
-      await context.bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.TYPING)
-    except Exception as e:
-      logger.log('DEBUG', f'Chat action error: {e}', user_id, event_type='chat_action')
+    async def send_typing():
+      try:
+        while True:
+          await context.bot.send_chat_action(chat_id=msg.chat.id, action=ChatAction.TYPING)
+          await asyncio.sleep(3)
+      except Exception as e:
+        logger.log('DEBUG', f'Chat action error: {e}', user_id, event_type='chat_action')
+    typing_task = asyncio.create_task(send_typing())
   try:
     from src.llm_client import llm_client
-    response = await llm_client.generate([{"role": "user", "content": text}], user_id=user_id)
+    logger.log('DEBUG', 'Calling LLM...', user_id)
+    try:
+      response = await asyncio.wait_for(
+        llm_client.generate([{"role": "user", "content": text}], user_id=user_id),
+        timeout=90
+      )
+      logger.log('DEBUG', 'LLM responded', user_id)
+    except asyncio.TimeoutError:
+      logger.log('ERROR', 'LLM timeout', user_id, event_type='llm_error')
+      response = 'Извините, сервис ИИ не ответил вовремя. Попробуйте позже.'
     logger.log('INFO', f'LLM response: {response}', user_id, event_type='assistant_reply')
     logger.log('DEBUG', f'LLM response: {response}', user_id, event_type='assistant_reply')
   except Exception as e:
     logger.log('ERROR', f'LLM error: {e}', user_id, event_type='llm_error')
     response = 'Извините, произошла ошибка при обращении к ИИ.'
-  if msg and hasattr(msg, 'reply_text'):
-    await msg.reply_text(response)
+  if typing_task:
+    typing_task.cancel()
+    try:
+      await typing_task
+    except asyncio.CancelledError:
+      pass
+    except Exception as e:
+      logger.log('DEBUG', f'Typing task await error: {e}', user_id, event_type='chat_action')
+  if msg and hasattr(msg, 'chat'):
+    try:
+      logger.log('DEBUG', f'Sending to Telegram chat {msg.chat.id}: {response}', user_id, event_type='telegram_debug')
+      if isinstance(response, str) and response.startswith('Ошибка соединения с LLM API'):
+        await context.bot.send_message(chat_id=msg.chat.id, text='Извините, сервис ИИ временно недоступен. Попробуйте позже.')
+      else:
+        # Пытаемся сначала через Bot API send_message
+        await context.bot.send_message(chat_id=msg.chat.id, text=response)
+      logger.log('INFO', 'Message sent to Telegram', user_id, event_type='telegram_send')
+    except Exception as e:
+      # fallback через reply_text
+      try:
+        await msg.reply_text(response)
+        logger.log('INFO', 'Message sent via reply_text fallback', user_id, event_type='telegram_send')
+      except Exception as ex:
+        logger.log('ERROR', f'Telegram send error: {e}; fallback error: {ex}', user_id, event_type='telegram_error')
   if user_id is not None:
     storage.save_history(user_id, 'assistant_reply', response)
   logger.log('DEBUG', response, user_id, event_type='assistant_reply')
@@ -88,7 +125,11 @@ async def ask_contact(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
   if user_id is not None:
     storage.save_history(user_id, 'user_message', text)
   logger.log('DEBUG', text, user_id, event_type='user_message')
-  context.user_data['name'] = text
+  user_data_ctx = getattr(context, 'user_data', None)
+  if not isinstance(user_data_ctx, dict):
+    user_data_ctx = {}
+    context.user_data = user_data_ctx
+  user_data_ctx['name'] = text
   reply = f'Спасибо, {text}! Пожалуйста, отправьте ваш телефон или ник в Telegram.'
   await save_and_reply(update, context, reply)
   return ASK_CONTACT
@@ -122,7 +163,9 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
   questions = [f"{i+1}. {item['question']}" for i, item in enumerate(faqs)]
   text = 'Часто задаваемые вопросы:\n' + '\n'.join(questions)
   text += '\n\nОтправьте номер или текст вопроса для получения ответа.'
-  context.user_data['faqs'] = faqs
+  user_data = getattr(context, 'user_data', None)
+  if isinstance(user_data, dict):
+    user_data['faqs'] = faqs
   if user_id is not None:
     storage.save_history(user_id, 'faq_list_shown')
     logger.log('INFO', 'faq_list_shown', user_id, event_type='faq')
@@ -131,7 +174,7 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def answer_faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
   faqs = None
   user_data = getattr(context, 'user_data', None)
-  if user_data is not None and isinstance(user_data, dict):
+  if isinstance(user_data, dict):
     faqs = user_data.get('faqs')
   if not faqs:
     return
