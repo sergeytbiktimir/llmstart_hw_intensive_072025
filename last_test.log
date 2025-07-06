@@ -1,0 +1,26 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.0, pytest-8.3.5, pluggy-1.6.0 -- /Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12
+cachedir: .pytest_cache
+rootdir: /Users/sbiktimirov/LLM_Projects/llmstart_hw_intensive_072025
+plugins: anyio-4.9.0, timeout-2.4.0, mock-3.14.1, cov-6.1.1, asyncio-1.0.0
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 16 items
+
+tests/test_bot.py::test_start PASSED                                     [  6%]
+tests/test_bot.py::test_ask_contact PASSED                               [ 12%]
+tests/test_bot.py::test_save_contact_handler PASSED                      [ 18%]
+tests/test_bot.py::test_faq PASSED                                       [ 25%]
+tests/test_bot.py::test_answer_faq_found PASSED                          [ 31%]
+tests/test_bot.py::test_answer_faq_not_found PASSED                      [ 37%]
+tests/test_bot.py::test_services PASSED                                  [ 43%]
+tests/test_bot.py::test_unknown_command PASSED                           [ 50%]
+tests/test_logger.py::test_log_write_and_content PASSED                  [ 56%]
+tests/test_logger.py::test_log_rotation PASSED                           [ 62%]
+tests/test_logger.py::test_log_should_not_write_below_level PASSED       [ 68%]
+tests/test_service_catalog.py::test_get_services PASSED                  [ 75%]
+tests/test_service_catalog.py::test_empty_services_file PASSED           [ 81%]
+tests/test_storage.py::test_save_and_get_contact PASSED                  [ 87%]
+tests/test_storage.py::test_save_and_get_history PASSED                  [ 93%]
+tests/test_storage.py::test_empty_contacts_and_history PASSED            [100%]
+
+======================= 16 passed, 128 warnings in 0.39s =======================
