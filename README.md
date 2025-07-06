@@ -317,12 +317,45 @@ conda env update -f environment.yml
 - Ключи шифруются отдельно (например, AES-256 + base64), мастер-ключ только в .env. 
 
 ## Шифрование ключей для LLM-моделей
-Для генерации зашифрованного ключа используйте скрипт:
+Для macOS можно использовать bash-скрипт:
 
 ```
-python encrypt_llm_key.py <ваш_секретный_ключ>
+./encrypt_llm_key_macos.sh <ваш_секретный_ключ>
 ```
 
-В переменной окружения LLM_MODEL_DECRYPT_KEY должен быть base64-строкой длиной 32 байта (например, сгенерировать через os.urandom(32) и base64.urlsafe_b64encode).
+Скрипт использует переменную LLM_MODEL_DECRYPT_KEY из .env или окружения. Если переменная не задана, скрипт завершится с ошибкой.
 
-Полученное значение вставьте в поле encrypted_api_key в llm_models.json для нужной модели. 
+### Пример генерации мастер-ключа (LLM_MODEL_DECRYPT_KEY)
+
+В Python:
+```python
+import os, base64
+print(base64.urlsafe_b64encode(os.urandom(32)).decode())
+```
+
+Скопируйте результат в .env:
+```
+LLM_MODEL_DECRYPT_KEY=... # вставьте сгенерированное значение
+```
+
+### Пример генерации encrypted_api_key
+
+1. Убедитесь, что LLM_MODEL_DECRYPT_KEY задан в .env или передайте его вторым аргументом.
+2. Запустите:
+```
+python encrypt_llm_key.py sk-...your_openai_key...
+```
+или
+```
+python encrypt_llm_key.py sk-...your_openai_key... <ваш_мастер_ключ>
+```
+
+3. Полученное значение вставьте в llm_models.json:
+```json
+{
+  "name": "gpt-3.5-turbo",
+  "service": "openai",
+  "endpoint": "https://api.openai.com/v1/chat/completions",
+  "encrypted_api_key": "<сюда вставьте результат>"
+}
+``` 
