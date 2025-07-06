@@ -5,4 +5,10 @@ dependencies:
   - pip:
       - python-telegram-bot
       - python-dotenv
-      - pytest 
+      - pytest
+      - ruff
+      - black
+      - mypy
+      - openai
+      - httpx
+      - cryptography 
