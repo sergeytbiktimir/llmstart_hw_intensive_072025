@@ -6,11 +6,12 @@
 import os
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes, CallbackContext
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 import json
 from src.storage import storage
 from src.service_catalog import service_catalog
 from src.logger import logger
+from src.context_manager import context_manager
 from telegram.constants import ChatAction
 import asyncio
 import re
@@ -77,9 +78,16 @@ async def user_message_handler(update: Update, context: ContextTypes.DEFAULT_TYP
   try:
     from src.llm_client import llm_client
     logger.log('DEBUG', 'Calling LLM...', user_id)
+    # Формируем контекст из истории сообщений
+    if user_id is not None:
+      messages_with_context = context_manager.build_messages_with_context(user_id, text)
+      logger.log('DEBUG', f'Using context with {len(messages_with_context)} messages', user_id, event_type='llm_context')
+    else:
+      messages_with_context = [{"role": "user", "content": text}]
+      logger.log('DEBUG', 'No user_id, using single message without context', user_id, event_type='llm_context')
     try:
       response = await asyncio.wait_for(
-        llm_client.generate([{"role": "user", "content": text}], user_id=user_id),
+        llm_client.generate(messages_with_context, user_id=user_id),
         timeout=90
       )
       logger.log('DEBUG', 'LLM responded', user_id)
