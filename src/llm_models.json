@@ -29,6 +29,7 @@
   {
     "name": "lmstudio-llama3",
     "service": "lmstudio",
+    "is_default": true,
     "provider_model_name": "llama3",
     "endpoint": "http://localhost:1234/v1/chat/completions"
   },
@@ -39,9 +40,23 @@
     "endpoint": "http://localhost:1234/v1/chat/completions"
   },
   {
-    "name": "openrouter-api",
+    "name": "gpt-3.5-turbo",
     "service": "openai",
     "provider_model_name": "openai/gpt-3.5-turbo",
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "encrypted_api_key": "LHtVdq63javaZerII87d8DwDT9bVpfu40V2kXN2PWDTUaiNBs5d7GZLCJKdI74G96H_EHTLXd7HyoglcaLUZyF51lXu__OfBIS7t2Z5Ge8ec3KAxevv_kf2zXAYX-x8o"
+  },
+  {
+    "name": "deepseek-r1t-chimera",
+    "service": "openai",
+    "provider_model_name": "tngtech/deepseek-r1t-chimera:free",
+    "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+    "encrypted_api_key": "LHtVdq63javaZerII87d8DwDT9bVpfu40V2kXN2PWDTUaiNBs5d7GZLCJKdI74G96H_EHTLXd7HyoglcaLUZyF51lXu__OfBIS7t2Z5Ge8ec3KAxevv_kf2zXAYX-x8o"
+  },
+  {
+    "name": "qwen3-235b-a22b",
+    "service": "openai",
+    "provider_model_name": "qwen/qwen3-235b-a22b:free",
     "endpoint": "https://openrouter.ai/api/v1/chat/completions",
     "encrypted_api_key": "LHtVdq63javaZerII87d8DwDT9bVpfu40V2kXN2PWDTUaiNBs5d7GZLCJKdI74G96H_EHTLXd7HyoglcaLUZyF51lXu__OfBIS7t2Z5Ge8ec3KAxevv_kf2zXAYX-x8o"
   }

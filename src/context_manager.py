@@ -112,7 +112,7 @@ class ContextManager:
                     current_pair = {
                         "user": entry["details"],
                         "assistant": "",
-                        "timestamp": entry["timestamp"]
+                        "timestamp": entry.get("created_at")  # фиксация времени сообщения
                     }
                 elif entry["action"] == "assistant_reply" and current_pair["user"]:
                     # Добавляем ответ ассистента к текущей паре

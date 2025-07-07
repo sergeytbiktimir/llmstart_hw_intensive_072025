@@ -4,19 +4,47 @@
 Секреты — только через .env (python-dotenv).
 """
 import os
-from dotenv import load_dotenv
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
+import re
 import json
+import asyncio
+
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    ConversationHandler,
+    ContextTypes,
+)
+from telegram.constants import ChatAction
+
 from src.storage import storage
 from src.service_catalog import service_catalog
 from src.logger import logger
 from src.context_manager import context_manager
-from telegram.constants import ChatAction
-import asyncio
-import re
 
-load_dotenv()
+# Пытаемся использовать python-dotenv, если он установлен. В противном случае – минимальная резервная реализация,
+# чтобы бот мог работать даже без зависимости.
+try:
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except ModuleNotFoundError:  # python-dotenv не установлен.
+    def _simple_load_dotenv(dotenv_path: str = ".env") -> None:
+        """Простейший парсер .env-файла (KEY=VALUE строки, без экспорта)."""
+        if not os.path.exists(dotenv_path):
+            return
+        with open(dotenv_path, "r", encoding="utf-8") as env_file:
+            for raw_line in env_file:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                # Не переопределяем уже заданные переменные окружения
+                os.environ.setdefault(key, value)
+
+    _simple_load_dotenv()
+
 TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 if not TELEGRAM_BOT_TOKEN:
     raise RuntimeError('TELEGRAM_BOT_TOKEN is not set in the environment. Please set it in your .env file.')
