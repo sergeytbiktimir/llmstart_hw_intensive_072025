@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/sbiktimirov/LLM_Projects/llmstart_hw_intensive_072025/src/bot.py", line 11, in <module>
+    from telegram import Update
+ModuleNotFoundError: No module named 'telegram'
