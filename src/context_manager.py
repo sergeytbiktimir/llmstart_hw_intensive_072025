@@ -38,8 +38,8 @@ class ContextManager:
             Список сообщений в формате [{"role": "user|assistant", "content": "текст"}]
         """
         try:
-            # Получаем историю сообщений пользователя
-            history = storage.get_history(user_id)
+            # Получаем только последние self.max_messages сообщений пользователя
+            history = storage.get_recent_history(user_id, self.max_messages)
             
             # Фильтруем только сообщения пользователя и ассистента
             conversation_messages = []
@@ -53,8 +53,8 @@ class ContextManager:
                             "content": content.strip()
                         })
             
-            # Берем последние MAX_CONTEXT_MESSAGES сообщений
-            recent_messages = conversation_messages[-self.max_messages:] if len(conversation_messages) > self.max_messages else conversation_messages
+            # Берем последние MAX_CONTEXT_MESSAGES сообщений (уже ограничено выборкой)
+            recent_messages = conversation_messages
             
             # Проверяем общую длину контекста
             total_length = sum(len(msg["content"]) for msg in recent_messages)
@@ -193,12 +193,25 @@ class ContextManager:
                 logger.log('INFO', f'Added {len(long_term_messages)} relevant conversations from long-term memory', 
                           user_id, event_type='long_term_memory_used')
         
-        # Добавляем текущее сообщение
-        messages = long_term_messages + context_messages + [{"role": "user", "content": current_message}]
+        # Добавляем system-промт в начало истории
+        system_prompt = {
+            "role": "system",
+            "content": (
+                "Ты — умный и внимательный собеседник, ведущий живой диалог с пользователем в формате чата. "
+                "Ниже приведена история вашей переписки: это последовательность сообщений, где роль 'user' — это пользователь, а 'assistant' — ты, ассистент. "
+                "Ты обладаешь памятью: можешь ссылаться на предыдущие сообщения, вспоминать детали прошлых обсуждений, поддерживать контекст и нить разговора. "
+                "Если пользователь спрашивает о своих или твоих прошлых репликах, ищи их в истории ниже и используй для ответа. "
+                "Старайся быть последовательным, не повторяйся, не теряй тему, реагируй на намёки и уточнения пользователя. "
+                "Веди себя естественно, дружелюбно и профессионально, как человек, который действительно помнит, о чём шла речь ранее. "
+                "Если в истории есть незавершённые вопросы или темы — можешь предложить к ним вернуться. "
+                "Всегда отвечай на русском языке, если не указано иное."
+            )
+        }
+        # Формируем итоговый список сообщений
+        messages = [system_prompt] + long_term_messages + context_messages + [{"role": "user", "content": current_message}]
         
         logger.log('DEBUG', f'Built messages for LLM: {len(messages)} total messages', 
                   user_id, event_type='llm_messages_built')
-        
         return messages
 
 # Глобальный экземпляр менеджера контекста

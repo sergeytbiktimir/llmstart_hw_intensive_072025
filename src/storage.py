@@ -93,5 +93,27 @@ class SQLiteStorage(Storage):
         for row in c.fetchall()
       ]
 
+  def get_recent_history(self, user_id: int, limit: int = 10):
+    """Возвращает последние limit сообщений пользователя из истории."""
+    from src.logger import logger
+    logger.log('DEBUG', f'get_recent_history: user_id={user_id}, limit={limit}', user_id, event_type='storage_query')
+    with self.get_connection() as conn:
+      c = conn.cursor()
+      c.execute(
+        """
+        SELECT user_id, action, details, created_at FROM history
+        WHERE user_id=? AND action IN ('user_message', 'assistant_reply')
+        ORDER BY id DESC LIMIT ?
+        """,
+        (user_id, limit)
+      )
+      rows = c.fetchall()
+      logger.log('DEBUG', f'get_recent_history: returned {len(rows)} rows (user+assistant only)', user_id, event_type='storage_query')
+      # Возвращаем в хронологическом порядке (от старых к новым)
+      return [
+        {"user_id": row[0], "action": row[1], "details": row[2], "created_at": row[3]}
+        for row in reversed(rows)
+      ]
+
 # Экземпляр хранилища по умолчанию
 storage = SQLiteStorage() 
