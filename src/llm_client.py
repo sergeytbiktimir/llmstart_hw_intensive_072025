@@ -84,12 +84,16 @@ class LLMClient:
                             err_text = await resp.text()
                             logger.log('ERROR', f'[{model_display}] LLM API error {resp.status}: {err_text}', user_id, event_type='llm_error')
                             if resp.status == 401:
+                                logger.log('ERROR', f'Ошибка авторизации LLM API: {err_text}', user_id, event_type='llm_error')
                                 return 'Ошибка авторизации LLM API: проверьте ключ.'
                             elif resp.status == 403:
+                                logger.log('ERROR', f'Доступ к LLM API запрещён (403): {err_text}', user_id, event_type='llm_error')
                                 return 'Доступ к LLM API запрещён. Проверьте права доступа.'
                             elif resp.status == 404:
+                                logger.log('ERROR', f'LLM API не найден (404): {err_text}', user_id, event_type='llm_error')
                                 return 'LLM API не найден. Проверьте endpoint и имя модели.'
                             else:
+                                logger.log('ERROR', f'LLM API error {resp.status}: {err_text}', user_id, event_type='llm_error')
                                 if resp.status == 503:
                                     return 'Сервис перегружен, повторите через минуту.'
                                 return f'Ошибка LLM API ({resp.status}): {err_text}'
